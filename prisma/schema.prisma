@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum StayType {
+  PG
+  APARTMENT
+  TEMPORARY
+  SHARED_FLAT
+}
+
+enum RoomType {
+  PRIVATE
+  SHARED
+}
+
+enum FurnishedStatus {
+  FURNISHED
+  SEMI_FURNISHED
+  UNFURNISHED
+}
+
+enum GenderPref {
+  MALE
+  FEMALE
+  ANY
+}
+
+enum ConcernType {
+  CLEANLINESS
+  SAFETY
+  FOOD_QUALITY
+  HIDDEN_CHARGES
+  MISLEADING_PHOTOS
+  NOISE
+  OWNER_BEHAVIOR
+  OTHER
+}
+
+enum ReportReason {
+  SPAM
+  FAKE_LISTING
+  INAPPROPRIATE
+  MISLEADING
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NextAuth models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(USER)
+  phone         String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  properties    Property[]
+  reviews       Review[]
+  comments      Comment[]
+  savedListings SavedListing[]
+  flatmatePosts FlatmatePost[]
+  reports       ConcernReport[]
+}
+
+model Property {
+  id               String          @id @default(cuid())
+  title            String
+  description      String          @db.Text
+  stayType         StayType
+  address          String
+  area             String
+  city             String          @default("Bangalore")
+  latitude         Float
+  longitude        Float
+  price            Int
+  deposit          Int
+  roomType         RoomType        @default(PRIVATE)
+  hasAC            Boolean         @default(false)
+  isFurnished      FurnishedStatus @default(SEMI_FURNISHED)
+  foodIncluded     Boolean         @default(false)
+  genderPreference GenderPref      @default(ANY)
+  availableFrom    DateTime
+  isAvailable      Boolean         @default(true)
+  isVerified       Boolean         @default(false)
+  contactName      String
+  contactPhone     String
+  contactEmail     String?
+  createdById      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  createdBy     User              @relation(fields: [createdById], references: [id])
+  images        PropertyImage[]
+  amenities     PropertyAmenity[]
+  reviews       Review[]
+  comments      Comment[]
+  savedBy       SavedListing[]
+  flatmatePosts FlatmatePost[]
+  reports       ConcernReport[]
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String
+  alt        String?
+  isPrimary  Boolean  @default(false)
+  propertyId String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Amenity {
+  id         String            @id @default(cuid())
+  name       String            @unique
+  icon       String?
+  properties PropertyAmenity[]
+}
+
+model PropertyAmenity {
+  propertyId String
+  amenityId  String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity  Amenity  @relation(fields: [amenityId], references: [id])
+
+  @@id([propertyId, amenityId])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  rating        Int
+  body          String   @db.Text
+  hasLivedThere Boolean  @default(false)
+  propertyId    String
+  userId        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id          String       @id @default(cuid())
+  body        String       @db.Text
+  concernType ConcernType?
+  propertyId  String
+  userId      String
+  createdAt   DateTime     @default(now())
+
+  property Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports  ConcernReport[]
+}
+
+model ConcernReport {
+  id         String       @id @default(cuid())
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(PENDING)
+  propertyId String?
+  commentId  String?
+  userId     String
+  createdAt  DateTime     @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  comment  Comment?  @relation(fields: [commentId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+}
+
+model SavedListing {
+  userId     String
+  propertyId String
+  savedAt    DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, propertyId])
+}
+
+model FlatmatePost {
+  id            String     @id @default(cuid())
+  propertyId    String?
+  propertyLink  String?
+  genderPref    GenderPref @default(ANY)
+  budgetShare   Int
+  moveInDate    DateTime
+  bio           String     @db.Text
+  contactMethod String
+  contactValue  String
+  userId        String
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
