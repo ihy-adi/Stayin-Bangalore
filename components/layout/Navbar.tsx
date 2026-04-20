@@ -31,6 +31,12 @@ export function Navbar() {
             <Link href="/explore" className="text-sm text-gray-600 hover:text-brand-600 font-medium transition-colors">
               Explore
             </Link>
+            <Link href="/promotions" className="text-sm text-gray-600 hover:text-amber-600 font-medium transition-colors flex items-center gap-1">
+              <span className="text-amber-500">🏷️</span> Promotions
+            </Link>
+            <Link href="/share-space" className="text-sm text-gray-600 hover:text-brand-600 font-medium transition-colors">
+              Share Space
+            </Link>
             <Link href="/flatmates" className="text-sm text-gray-600 hover:text-brand-600 font-medium transition-colors">
               Find Flatmate
             </Link>
@@ -122,6 +128,12 @@ export function Navbar() {
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-3">
           <Link href="/explore" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-700 py-2">
             Explore Listings
+          </Link>
+          <Link href="/promotions" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-amber-600 py-2">
+            🏷️ Promotions
+          </Link>
+          <Link href="/share-space" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-700 py-2">
+            Share Space
           </Link>
           <Link href="/flatmates" onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-700 py-2">
             Find a Flatmate
