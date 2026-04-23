@@ -44,6 +44,32 @@
 }
 
 @layer utilities {
+  /* Cinematic hero scene animations */
+  @keyframes flyBird {
+    0%   { transform: translateX(-80px) translateY(0px) scaleX(1); }
+    48%  { transform: translateX(48vw) translateY(-25px) scaleX(1); }
+    50%  { transform: translateX(50vw) translateY(-25px) scaleX(-1); }
+    100% { transform: translateX(-80px) translateY(0px) scaleX(-1); }
+  }
+  @keyframes walkRight {
+    0%   { left: -50px; }
+    100% { left: 105%; }
+  }
+  @keyframes walkLeft {
+    0%   { left: 105%; }
+    100% { left: -50px; }
+  }
+  @keyframes legSwingA {
+    0%, 100% { transform: rotate(22deg); }
+    50%       { transform: rotate(-22deg); }
+  }
+  @keyframes legSwingB {
+    0%, 100% { transform: rotate(-22deg); }
+    50%       { transform: rotate(22deg); }
+  }
+}
+
+@layer utilities {
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
