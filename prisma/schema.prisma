@@ -8,71 +8,111 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Enums
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum UserRole {
-  USER
+  SEEKER
+  OWNER
   ADMIN
 }
 
-enum StayType {
+enum PropertyType {
   PG
   APARTMENT
-  TEMPORARY
-  SHARED_FLAT
+  FLAT
+  ROOM
+  HOSTEL
+  CO_LIVING
+  SERVICE_APARTMENT
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  INACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+enum FurnishingType {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FULLY_FURNISHED
 }
 
 enum RoomType {
   PRIVATE
   SHARED
+  SINGLE
+  DOUBLE_SHARING
+  TRIPLE_SHARING
+  FOUR_SHARING
+  ONE_BHK
+  TWO_BHK
+  THREE_BHK
+  STUDIO
 }
 
-enum FurnishedStatus {
-  FURNISHED
-  SEMI_FURNISHED
-  UNFURNISHED
-}
-
-enum GenderPref {
+enum GenderPreference {
+  ANY
   MALE
   FEMALE
-  ANY
+  FAMILY
 }
 
-enum ConcernType {
-  CLEANLINESS
-  SAFETY
-  FOOD_QUALITY
-  HIDDEN_CHARGES
-  MISLEADING_PHOTOS
-  NOISE
-  OWNER_BEHAVIOR
-  OTHER
+enum MediaType {
+  IMAGE
+  VIDEO
 }
 
-enum ReportReason {
-  SPAM
-  FAKE_LISTING
-  INAPPROPRIATE
-  MISLEADING
-  OTHER
+enum DiscussionType {
+  QUESTION
+  FEEDBACK
+  TIP
+  WARNING
+  FLATMATE
+  GENERAL
+}
+
+enum ContentStatus {
+  VISIBLE
+  HIDDEN
+  REMOVED
+  PENDING_REVIEW
+}
+
+enum VoteType {
+  UP
+  DOWN
 }
 
 enum ReportStatus {
   PENDING
-  REVIEWED
+  APPROVED
+  REJECTED
   RESOLVED
-  DISMISSED
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NextAuth models
-// ─────────────────────────────────────────────────────────────────────────────
+enum ReportTargetType {
+  PROPERTY
+  THREAD
+  COMMENT
+  REVIEW
+  USER
+}
+
+enum VisitStatus {
+  LIVED_THERE
+  VISITED
+  CONTACTED
+  NOT_VISITED
+}
+
+// ─── NextAuth required models (keep for PrismaAdapter + Google OAuth) ─────────
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String  @id @default(uuid())
   userId            String
   type              String
   provider          String
@@ -91,7 +131,7 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
@@ -107,89 +147,140 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Core models
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Core models ──────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
+  id           String   @id @default(uuid())
+  name         String?
+  email        String   @unique
   emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole  @default(USER)
-  phone         String?
-  bio           String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  // image is used by NextAuth (Google profile photo). avatarUrl is user-uploaded.
+  image        String?
+  avatarUrl    String?
+  passwordHash String?
+  phone        String?
+  role         UserRole @default(SEEKER)
+  isVerified   Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  properties    Property[]
-  reviews       Review[]
-  comments      Comment[]
-  savedListings SavedListing[]
-  flatmatePosts FlatmatePost[]
-  reports       ConcernReport[]
-  spacePosts    SpacePost[]
-  spaceComments SpacePostComment[]
+  accounts           Account[]
+  sessions           Session[]
+  ownedProperties    Property[]         @relation("PropertyOwner")
+  savedProperties    SavedProperty[]
+  reviews            Review[]
+  discussionThreads  DiscussionThread[]
+  discussionComments DiscussionComment[]
+  threadVotes        ThreadVote[]
+  commentVotes       CommentVote[]
+  reportsMade        Report[]           @relation("ReportsMade")
+  reportsReviewed    Report[]           @relation("ReportsReviewed")
+  flatmatePosts      FlatmatePost[]
+  propertyViews      PropertyView[]
+  inquiries          Inquiry[]
+
+  @@index([role])
+  @@index([isVerified])
 }
 
 model Property {
-  id               String          @id @default(cuid())
-  title            String
-  description      String          @db.Text
-  stayType         StayType
-  address          String
-  area             String
-  city             String          @default("Bangalore")
-  latitude         Float
-  longitude        Float
-  price            Int
-  deposit          Int
-  roomType         RoomType        @default(PRIVATE)
-  hasAC            Boolean         @default(false)
-  isFurnished      FurnishedStatus @default(SEMI_FURNISHED)
-  foodIncluded     Boolean         @default(false)
-  genderPreference GenderPref      @default(ANY)
-  availableFrom    DateTime
-  isAvailable      Boolean         @default(true)
-  isVerified       Boolean         @default(false)
-  isPromoted       Boolean         @default(false)
-  promotionText    String?
-  promotionExpiry  DateTime?
-  contactName      String
-  contactPhone     String
-  contactEmail     String?
-  createdById      String
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id      String @id @default(uuid())
+  ownerId String
+  owner   User   @relation("PropertyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  createdBy     User              @relation(fields: [createdById], references: [id])
-  images        PropertyImage[]
-  amenities     PropertyAmenity[]
-  reviews       Review[]
-  comments      Comment[]
-  savedBy       SavedListing[]
-  flatmatePosts FlatmatePost[]
-  reports       ConcernReport[]
+  title        String
+  slug         String        @unique
+  description  String?       @db.Text
+  propertyType PropertyType
+  status       ListingStatus @default(DRAFT)
+
+  addressLine1 String?
+  addressLine2 String?
+  area         String
+  city         String        @default("Bangalore")
+  state        String        @default("Karnataka")
+  pincode      String?
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  rentAmount     Int
+  depositAmount  Int?
+  maintenanceFee Int?
+
+  roomType         RoomType?
+  furnishing       FurnishingType?
+  genderPreference GenderPreference @default(ANY)
+
+  hasAc            Boolean?
+  foodIncluded     Boolean?
+  hasWifi          Boolean?
+  hasPowerBackup   Boolean?
+  hasParking       Boolean?
+  hasLaundry       Boolean?
+  hasSecurity      Boolean?
+  attachedBathroom Boolean?
+
+  lockInMonths     Int?
+  noticePeriodDays Int?
+  availableFrom    DateTime?
+  isAvailable      Boolean   @default(true)
+
+  isVerified   Boolean   @default(false)
+  verifiedAt   DateTime?
+  verifiedById String?
+
+  sourceUrl       String?
+  sourceName      String?
+  scrapedAt       DateTime?
+  extraAttributes Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  media             PropertyMedia[]
+  amenities         PropertyAmenity[]
+  savedBy           SavedProperty[]
+  reviews           Review[]
+  discussionThreads DiscussionThread[]
+  flatmatePosts     FlatmatePost[]
+  views             PropertyView[]
+  inquiries         Inquiry[]
+
+  @@index([ownerId])
+  @@index([propertyType])
+  @@index([status])
+  @@index([area])
+  @@index([city])
+  @@index([rentAmount])
+  @@index([isVerified])
+  @@index([latitude, longitude])
 }
 
-model PropertyImage {
-  id         String   @id @default(cuid())
-  url        String
-  alt        String?
-  isPrimary  Boolean  @default(false)
+model PropertyMedia {
+  id         String   @id @default(uuid())
   propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  mediaType MediaType
+  url       String
+  caption   String?
+  sortOrder Int       @default(0)
+  isPrimary Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([mediaType])
 }
 
 model Amenity {
-  id         String            @id @default(cuid())
-  name       String            @unique
-  icon       String?
+  id        String   @id @default(uuid())
+  name      String   @unique
+  category  String?
+  createdAt DateTime @default(now())
+
   properties PropertyAmenity[]
 }
 
@@ -198,112 +289,235 @@ model PropertyAmenity {
   amenityId  String
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  amenity  Amenity  @relation(fields: [amenityId], references: [id])
+  amenity  Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 
   @@id([propertyId, amenityId])
+  @@index([amenityId])
+}
+
+model SavedProperty {
+  id         String @id @default(uuid())
+  userId     String
+  propertyId String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
 }
 
 model Review {
-  id            String   @id @default(cuid())
-  rating        Int
-  body          String   @db.Text
-  hasLivedThere Boolean  @default(false)
-  propertyId    String
-  userId        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Comment {
-  id          String       @id @default(cuid())
-  body        String       @db.Text
-  concernType ConcernType?
-  propertyId  String
-  userId      String
-  createdAt   DateTime     @default(now())
-
-  property Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reports  ConcernReport[]
-}
-
-model ConcernReport {
-  id         String       @id @default(cuid())
-  reason     ReportReason
-  details    String?
-  status     ReportStatus @default(PENDING)
-  propertyId String?
-  commentId  String?
-  userId     String
-  createdAt  DateTime     @default(now())
-
-  property Property? @relation(fields: [propertyId], references: [id])
-  comment  Comment?  @relation(fields: [commentId], references: [id])
-  user     User      @relation(fields: [userId], references: [id])
-}
-
-model SavedListing {
+  id         String @id @default(uuid())
   userId     String
   propertyId String
-  savedAt    DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  @@id([userId, propertyId])
+  rating         Int
+  title          String?
+  content        String?       @db.Text
+  visitStatus    VisitStatus   @default(NOT_VISITED)
+  wouldRecommend Boolean?
+
+  cleanlinessRating   Int?
+  safetyRating        Int?
+  foodRating          Int?
+  valueForMoneyRating Int?
+
+  status ContentStatus @default(VISIBLE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+  @@index([rating])
+  @@index([status])
 }
+
+// ─── Discussion system ────────────────────────────────────────────────────────
+
+model DiscussionThread {
+  id         String @id @default(uuid())
+  propertyId String
+  authorId   String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  type    DiscussionType
+  title   String?
+  content String         @db.Text
+
+  status   ContentStatus @default(VISIBLE)
+  isPinned Boolean       @default(false)
+
+  upvoteCount   Int @default(0)
+  downvoteCount Int @default(0)
+  commentCount  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments DiscussionComment[]
+  votes    ThreadVote[]
+
+  @@index([propertyId])
+  @@index([authorId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DiscussionComment {
+  id              String  @id @default(uuid())
+  threadId        String
+  authorId        String
+  parentCommentId String?
+
+  thread        DiscussionThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author        User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentComment DiscussionComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies       DiscussionComment[] @relation("CommentReplies")
+
+  content String        @db.Text
+  status  ContentStatus @default(VISIBLE)
+
+  upvoteCount   Int @default(0)
+  downvoteCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  votes CommentVote[]
+
+  @@index([threadId])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ThreadVote {
+  id       String   @id @default(uuid())
+  threadId String
+  userId   String
+  voteType VoteType
+
+  thread DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threadId, userId])
+  @@index([userId])
+  @@index([voteType])
+}
+
+model CommentVote {
+  id        String   @id @default(uuid())
+  commentId String
+  userId    String
+  voteType  VoteType
+
+  comment DiscussionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@index([voteType])
+}
+
+// ─── Supporting models ────────────────────────────────────────────────────────
 
 model FlatmatePost {
-  id            String     @id @default(cuid())
-  propertyId    String?
-  propertyLink  String?
-  genderPref    GenderPref @default(ANY)
-  budgetShare   Int
-  moveInDate    DateTime
-  bio           String     @db.Text
-  contactMethod String
-  contactValue  String
-  userId        String
-  isActive      Boolean    @default(true)
-  createdAt     DateTime   @default(now())
+  id         String  @id @default(uuid())
+  userId     String
+  propertyId String?
 
-  property Property? @relation(fields: [propertyId], references: [id])
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  title           String
+  description     String           @db.Text
+  preferredGender GenderPreference?
+  budgetShare     Int?
+  moveInDate      DateTime?
+  contactMethod   String?
+  status          ContentStatus @default(VISIBLE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([propertyId])
+  @@index([status])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Share Space
-// ─────────────────────────────────────────────────────────────────────────────
+model PropertyView {
+  id         String  @id @default(uuid())
+  propertyId String
+  userId     String?
 
-model SpacePost {
-  id          String   @id @default(cuid())
-  title       String
-  description String   @db.Text
-  spaceType   StayType
-  area        String
-  price       Int
-  imageUrl    String?
-  contactName String
-  contactPhone String
-  userId      String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comments SpacePostComment[]
+  viewedAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([userId])
+  @@index([viewedAt])
 }
 
-model SpacePostComment {
-  id          String    @id @default(cuid())
-  body        String    @db.Text
-  spacePostId String
-  userId      String
-  createdAt   DateTime  @default(now())
+model Inquiry {
+  id         String @id @default(uuid())
+  propertyId String
+  userId     String
 
-  spacePost SpacePost @relation(fields: [spacePostId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  message String? @db.Text
+  status  String  @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Report {
+  id           String  @id @default(uuid())
+  reporterId   String
+  reviewedById String?
+
+  reporter   User  @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("ReportsReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  targetType ReportTargetType
+  targetId   String
+
+  reason    String
+  status    ReportStatus @default(PENDING)
+  adminNote String?      @db.Text
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  @@index([reporterId])
+  @@index([reviewedById])
+  @@index([targetType, targetId])
+  @@index([status])
 }
