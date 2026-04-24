@@ -10,7 +10,20 @@ import type {
   ThreadWithMeta,
   ThreadDetail,
   CommentWithReplies,
+  DiscussionErrorCode,
 } from '@/types/discussion'
+
+// ── Custom error ──────────────────────────────────────────────────────────────
+
+export class DiscussionError extends Error {
+  constructor(
+    message: string,
+    public readonly code: DiscussionErrorCode,
+  ) {
+    super(message)
+    this.name = 'DiscussionError'
+  }
+}
 
 // ── Selectors ─────────────────────────────────────────────────────────────────
 
@@ -23,31 +36,36 @@ const authorSelect = {
   role: true,
 } as const
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Auth helper ───────────────────────────────────────────────────────────────
 
 async function requireSession() {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) throw new Error('Unauthorized')
+  if (!session?.user?.id) throw new DiscussionError('Unauthorized', 'UNAUTHORIZED')
   return session.user
 }
 
-// Nest flat comments into a tree by parentCommentId
+// ── Comment tree builder ──────────────────────────────────────────────────────
+
+// Nest flat comment list into a tree. Orphaned replies (parent hidden/removed
+// and therefore absent from the flat list) are dropped — not promoted to root.
 function nestComments(flat: CommentWithReplies[]): CommentWithReplies[] {
   const map = new Map<string, CommentWithReplies>()
   const roots: CommentWithReplies[] = []
 
-  flat.forEach((c) => map.set(c.id, { ...c, replies: [] }))
+  for (const c of flat) map.set(c.id, { ...c, replies: [] })
 
-  flat.forEach((c) => {
+  for (const c of flat) {
     const node = map.get(c.id)!
     if (c.parentCommentId) {
       const parent = map.get(c.parentCommentId)
-      if (parent) parent.replies.push(node)
-      else roots.push(node)
+      if (parent) {
+        parent.replies.push(node)
+      }
+      // Parent absent (hidden/removed) — drop orphan silently
     } else {
       roots.push(node)
     }
-  })
+  }
 
   return roots
 }
@@ -56,6 +74,13 @@ function nestComments(flat: CommentWithReplies[]): CommentWithReplies[] {
 
 export async function createThread(input: CreateThreadInput): Promise<ThreadWithMeta> {
   const user = await requireSession()
+
+  // Verify property exists
+  const property = await prisma.property.findUnique({
+    where: { id: input.propertyId },
+    select: { id: true },
+  })
+  if (!property) throw new DiscussionError('Property not found', 'NOT_FOUND')
 
   const thread = await prisma.discussionThread.create({
     data: {
@@ -73,7 +98,7 @@ export async function createThread(input: CreateThreadInput): Promise<ThreadWith
 
 export async function getThreadsForProperty(
   propertyId: string,
-  viewerId?: string
+  viewerId?: string,
 ): Promise<ThreadWithMeta[]> {
   const threads = await prisma.discussionThread.findMany({
     where: { propertyId, status: 'VISIBLE' },
@@ -81,7 +106,9 @@ export async function getThreadsForProperty(
     orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
   })
 
-  if (!viewerId) return threads.map((t) => ({ ...t, viewerVote: null }))
+  if (!viewerId || threads.length === 0) {
+    return threads.map((t) => ({ ...t, viewerVote: null }))
+  }
 
   const votes = await prisma.threadVote.findMany({
     where: { userId: viewerId, threadId: { in: threads.map((t) => t.id) } },
@@ -94,12 +121,14 @@ export async function getThreadsForProperty(
 
 export async function getThreadDetail(
   threadId: string,
-  viewerId?: string
+  viewerId?: string,
 ): Promise<ThreadDetail | null> {
   const thread = await prisma.discussionThread.findUnique({
     where: { id: threadId, status: 'VISIBLE' },
     include: {
       author: { select: authorSelect },
+      // Include ownerId so clients can derive the owner badge without an extra query
+      property: { select: { ownerId: true } },
       comments: {
         where: { status: 'VISIBLE' },
         include: { author: { select: authorSelect } },
@@ -120,7 +149,10 @@ export async function getThreadDetail(
         select: { voteType: true },
       }),
       prisma.commentVote.findMany({
-        where: { userId: viewerId, commentId: { in: thread.comments.map((c) => c.id) } },
+        where: {
+          userId: viewerId,
+          commentId: { in: thread.comments.map((c) => c.id) },
+        },
         select: { commentId: true, voteType: true },
       }),
     ])
@@ -134,8 +166,11 @@ export async function getThreadDetail(
     viewerVote: commentVoteMap.get(c.id) ?? null,
   }))
 
+  const { property, ...threadFields } = thread
+
   return {
-    ...thread,
+    ...threadFields,
+    propertyOwnerId: property.ownerId,
     viewerVote: threadVote,
     comments: nestComments(flatComments),
   }
@@ -145,6 +180,30 @@ export async function getThreadDetail(
 
 export async function createComment(input: CreateCommentInput): Promise<CommentWithReplies> {
   const user = await requireSession()
+
+  // Verify the thread exists and is open for comments
+  const thread = await prisma.discussionThread.findUnique({
+    where: { id: input.threadId },
+    select: { status: true },
+  })
+  if (!thread) throw new DiscussionError('Thread not found', 'NOT_FOUND')
+  if (thread.status !== 'VISIBLE') {
+    throw new DiscussionError('This thread is not open for comments', 'FORBIDDEN')
+  }
+
+  // If replying, verify parent belongs to the same thread
+  if (input.parentCommentId) {
+    const parent = await prisma.discussionComment.findUnique({
+      where: { id: input.parentCommentId },
+      select: { threadId: true, status: true },
+    })
+    if (!parent || parent.threadId !== input.threadId) {
+      throw new DiscussionError('Parent comment not found in this thread', 'NOT_FOUND')
+    }
+    if (parent.status !== 'VISIBLE') {
+      throw new DiscussionError('Cannot reply to a hidden comment', 'FORBIDDEN')
+    }
+  }
 
   const [comment] = await prisma.$transaction([
     prisma.discussionComment.create({
@@ -166,89 +225,105 @@ export async function createComment(input: CreateCommentInput): Promise<CommentW
 }
 
 // ── Vote actions ──────────────────────────────────────────────────────────────
+//
+// Both vote functions use an interactive transaction so the read-compute-write
+// is atomic. Without this, two concurrent first-time votes would both see
+// existing=null, both upsert, and both increment — causing a double-count.
 
 export async function voteOnThread(
   threadId: string,
-  voteType: VoteType
+  voteType: VoteType,
 ): Promise<{ upvoteCount: number; downvoteCount: number; viewerVote: VoteType }> {
   const user = await requireSession()
 
-  const existing = await prisma.threadVote.findUnique({
-    where: { threadId_userId: { threadId, userId: user.id } },
-  })
-
-  if (existing?.voteType === voteType) {
-    // Same vote clicked again — no change
-    const thread = await prisma.discussionThread.findUniqueOrThrow({
+  return prisma.$transaction(async (tx) => {
+    // Verify target exists
+    const target = await tx.discussionThread.findUnique({
       where: { id: threadId },
-      select: { upvoteCount: true, downvoteCount: true },
+      select: { id: true, upvoteCount: true, downvoteCount: true },
     })
-    return { ...thread, viewerVote: voteType }
-  }
+    if (!target) throw new DiscussionError('Thread not found', 'NOT_FOUND')
 
-  // Determine count deltas
-  const upDelta =
-    voteType === 'UP' ? 1 : existing?.voteType === 'UP' ? -1 : 0
-  const downDelta =
-    voteType === 'DOWN' ? 1 : existing?.voteType === 'DOWN' ? -1 : 0
+    const existing = await tx.threadVote.findUnique({
+      where: { threadId_userId: { threadId, userId: user.id } },
+      select: { voteType: true },
+    })
 
-  const [, thread] = await prisma.$transaction([
-    prisma.threadVote.upsert({
+    // Same vote clicked again — no-op, return current counts
+    if (existing?.voteType === voteType) {
+      return {
+        upvoteCount: target.upvoteCount,
+        downvoteCount: target.downvoteCount,
+        viewerVote: voteType,
+      }
+    }
+
+    const upDelta   = voteType === 'UP'   ? 1 : existing?.voteType === 'UP'   ? -1 : 0
+    const downDelta = voteType === 'DOWN' ? 1 : existing?.voteType === 'DOWN' ? -1 : 0
+
+    await tx.threadVote.upsert({
       where: { threadId_userId: { threadId, userId: user.id } },
       create: { threadId, userId: user.id, voteType },
       update: { voteType },
-    }),
-    prisma.discussionThread.update({
+    })
+
+    const updated = await tx.discussionThread.update({
       where: { id: threadId },
       data: {
-        upvoteCount: { increment: upDelta },
+        upvoteCount:   { increment: upDelta },
         downvoteCount: { increment: downDelta },
       },
       select: { upvoteCount: true, downvoteCount: true },
-    }),
-  ])
+    })
 
-  return { ...thread, viewerVote: voteType }
+    return { ...updated, viewerVote: voteType }
+  })
 }
 
 export async function voteOnComment(
   commentId: string,
-  voteType: VoteType
+  voteType: VoteType,
 ): Promise<{ upvoteCount: number; downvoteCount: number; viewerVote: VoteType }> {
   const user = await requireSession()
 
-  const existing = await prisma.commentVote.findUnique({
-    where: { commentId_userId: { commentId, userId: user.id } },
-  })
-
-  if (existing?.voteType === voteType) {
-    const comment = await prisma.discussionComment.findUniqueOrThrow({
+  return prisma.$transaction(async (tx) => {
+    const target = await tx.discussionComment.findUnique({
       where: { id: commentId },
-      select: { upvoteCount: true, downvoteCount: true },
+      select: { id: true, upvoteCount: true, downvoteCount: true },
     })
-    return { ...comment, viewerVote: voteType }
-  }
+    if (!target) throw new DiscussionError('Comment not found', 'NOT_FOUND')
 
-  const upDelta =
-    voteType === 'UP' ? 1 : existing?.voteType === 'UP' ? -1 : 0
-  const downDelta =
-    voteType === 'DOWN' ? 1 : existing?.voteType === 'DOWN' ? -1 : 0
+    const existing = await tx.commentVote.findUnique({
+      where: { commentId_userId: { commentId, userId: user.id } },
+      select: { voteType: true },
+    })
 
-  const [, comment] = await prisma.$transaction([
-    prisma.commentVote.upsert({
+    if (existing?.voteType === voteType) {
+      return {
+        upvoteCount: target.upvoteCount,
+        downvoteCount: target.downvoteCount,
+        viewerVote: voteType,
+      }
+    }
+
+    const upDelta   = voteType === 'UP'   ? 1 : existing?.voteType === 'UP'   ? -1 : 0
+    const downDelta = voteType === 'DOWN' ? 1 : existing?.voteType === 'DOWN' ? -1 : 0
+
+    await tx.commentVote.upsert({
       where: { commentId_userId: { commentId, userId: user.id } },
       create: { commentId, userId: user.id, voteType },
       update: { voteType },
-    }),
-    prisma.discussionComment.update({
+    })
+
+    const updated = await tx.discussionComment.update({
       where: { id: commentId },
       data: {
-        upvoteCount: { increment: upDelta },
+        upvoteCount:   { increment: upDelta },
         downvoteCount: { increment: downDelta },
       },
       select: { upvoteCount: true, downvoteCount: true },
-    }),
-  ])
+    })
 
-  return { ...comment, viewerVote: voteType }
+    return { ...updated, viewerVote: voteType }
+  })
 }

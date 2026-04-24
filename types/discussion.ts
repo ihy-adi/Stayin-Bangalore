@@ -24,7 +24,6 @@ export interface CommentWithReplies {
   updatedAt: Date
   author: ThreadAuthor
   replies: CommentWithReplies[]
-  // viewer's current vote on this comment, if any
   viewerVote?: VoteType | null
 }
 
@@ -43,11 +42,12 @@ export interface ThreadWithMeta {
   createdAt: Date
   updatedAt: Date
   author: ThreadAuthor
-  // viewer's current vote on this thread, if any
   viewerVote?: VoteType | null
 }
 
 export interface ThreadDetail extends ThreadWithMeta {
+  // Included so clients can derive owner badge: comment.authorId === propertyOwnerId
+  propertyOwnerId: string
   comments: CommentWithReplies[]
 }
 
@@ -69,3 +69,11 @@ export interface CreateCommentInput {
 export interface VoteInput {
   voteType: VoteType
 }
+
+// ── Error codes ───────────────────────────────────────────────────────────────
+
+export type DiscussionErrorCode =
+  | 'UNAUTHORIZED'
+  | 'NOT_FOUND'
+  | 'FORBIDDEN'
+  | 'VALIDATION'
