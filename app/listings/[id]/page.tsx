@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { ReviewSection } from '@/components/reviews/ReviewSection'
 import { Badge } from '@/components/ui/Badge'
+import { PropertyDiscussions } from '@/components/discussions/PropertyDiscussions'
 import {
   MapPin, Phone, Mail, Wind, UtensilsCrossed, Wifi, Shield,
   Zap, Car, Bath, Package, BookOpen, Dumbbell, Camera,
@@ -195,6 +196,11 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
               comments={property.comments as any}
               avgRating={property.avgRating}
             />
+          </div>
+
+          {/* Discussions */}
+          <div>
+            <PropertyDiscussions propertyId={property.id} />
           </div>
         </div>
 
