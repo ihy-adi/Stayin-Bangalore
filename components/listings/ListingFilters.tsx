@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SearchFilters } from '@/types'
 
@@ -12,11 +11,12 @@ const AREAS = [
   'Bellandur', 'Sarjapur Road', 'Hebbal', 'Yelahanka', 'JP Nagar',
 ]
 
-const STAY_TYPES = [
+const PROPERTY_TYPES = [
   { value: 'PG', label: 'PG' },
   { value: 'APARTMENT', label: 'Apartment' },
-  { value: 'SHARED_FLAT', label: 'Shared Flat' },
-  { value: 'TEMPORARY', label: 'Temporary' },
+  { value: 'FLAT', label: 'Flat' },
+  { value: 'ROOM', label: 'Room' },
+  { value: 'HOSTEL', label: 'Hostel' },
 ]
 
 const SORT_OPTIONS = [
@@ -36,25 +36,21 @@ interface ListingFiltersProps {
 export function ListingFilters({ filters, onChange, resultCount }: ListingFiltersProps) {
   const [open, setOpen] = useState(false)
 
-  function toggle<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) {
-    onChange({ ...filters, [key]: filters[key] === value ? undefined : value })
-  }
-
-  function toggleStayType(value: string) {
-    const current = filters.stayType ?? []
+  function togglePropertyType(value: string) {
+    const current = filters.propertyType ?? []
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value]
-    onChange({ ...filters, stayType: next.length ? next : undefined })
+    onChange({ ...filters, propertyType: next.length ? next : undefined })
   }
 
   const activeCount = [
-    filters.stayType?.length,
+    filters.propertyType?.length,
     filters.area,
-    filters.hasAC,
+    filters.hasAc,
     filters.foodIncluded,
     filters.roomType,
-    filters.isFurnished,
+    filters.furnishing,
     filters.genderPreference,
     filters.minPrice || filters.maxPrice,
   ].filter(Boolean).length
@@ -74,14 +70,14 @@ export function ListingFilters({ filters, onChange, resultCount }: ListingFilter
             ))}
           </select>
 
-          {/* Quick stay type filters */}
-          {STAY_TYPES.map((t) => (
+          {/* Quick property type filters */}
+          {PROPERTY_TYPES.map((t) => (
             <button
               key={t.value}
-              onClick={() => toggleStayType(t.value)}
+              onClick={() => togglePropertyType(t.value)}
               className={cn(
                 'h-9 px-4 rounded-full text-sm font-medium border flex-shrink-0 transition-colors',
-                filters.stayType?.includes(t.value)
+                filters.propertyType?.includes(t.value)
                   ? 'bg-brand-600 text-white border-brand-600'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
               )}
@@ -178,6 +174,8 @@ export function ListingFilters({ filters, onChange, resultCount }: ListingFilter
                 <option value="">Any</option>
                 <option value="PRIVATE">Private</option>
                 <option value="SHARED">Shared</option>
+                <option value="SINGLE">Single</option>
+                <option value="DOUBLE_SHARING">Double Sharing</option>
               </select>
             </div>
 
@@ -185,12 +183,12 @@ export function ListingFilters({ filters, onChange, resultCount }: ListingFilter
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1.5 block">Furnished</label>
               <select
-                value={filters.isFurnished ?? ''}
-                onChange={(e) => onChange({ ...filters, isFurnished: e.target.value || undefined })}
+                value={filters.furnishing ?? ''}
+                onChange={(e) => onChange({ ...filters, furnishing: e.target.value || undefined })}
                 className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Any</option>
-                <option value="FURNISHED">Fully Furnished</option>
+                <option value="FULLY_FURNISHED">Fully Furnished</option>
                 <option value="SEMI_FURNISHED">Semi-Furnished</option>
                 <option value="UNFURNISHED">Unfurnished</option>
               </select>
@@ -215,8 +213,8 @@ export function ListingFilters({ filters, onChange, resultCount }: ListingFilter
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={filters.hasAC ?? false}
-                  onChange={(e) => onChange({ ...filters, hasAC: e.target.checked || undefined })}
+                  checked={filters.hasAc ?? false}
+                  onChange={(e) => onChange({ ...filters, hasAc: e.target.checked || undefined })}
                   className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                 />
                 <span className="text-sm text-gray-700">AC</span>

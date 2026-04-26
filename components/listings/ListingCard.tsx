@@ -19,7 +19,7 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
   const [saved, setSaved] = useState(property.savedByCurrentUser ?? false)
   const [saving, setSaving] = useState(false)
 
-  const primaryImage = property.images.find((i) => i.isPrimary) ?? property.images[0]
+  const primaryImage = property.media.find((i) => i.isPrimary) ?? property.media[0]
 
   async function toggleSave(e: React.MouseEvent) {
     e.preventDefault()
@@ -50,7 +50,7 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
           {primaryImage ? (
             <Image
               src={primaryImage.url}
-              alt={primaryImage.alt ?? property.title}
+              alt={primaryImage.caption ?? property.title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -63,8 +63,8 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex gap-2">
-            <Badge variant={property.stayType === 'PG' ? 'default' : 'secondary'}>
-              {stayTypeLabel(property.stayType)}
+            <Badge variant={property.propertyType === 'PG' ? 'default' : 'secondary'}>
+              {stayTypeLabel(property.propertyType)}
             </Badge>
             {property.isVerified && (
               <Badge variant="success">Verified</Badge>
@@ -108,7 +108,7 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
 
           {/* Quick amenities */}
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {property.hasAC && (
+            {property.hasAc && (
               <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
                 <Wind className="h-3 w-3" /> AC
               </span>
@@ -129,7 +129,7 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
           {/* Footer */}
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-lg font-bold text-gray-900">{formatPrice(property.price)}</span>
+              <span className="text-lg font-bold text-gray-900">{formatPrice(property.rentAmount)}</span>
               <span className="text-xs text-gray-400">/month</span>
             </div>
             <div className="flex items-center gap-1 text-xs text-gray-500">

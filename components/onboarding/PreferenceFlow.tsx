@@ -17,8 +17,8 @@ const USER_TYPES = [
 const STAY_TYPES = [
   { value: 'PG', label: 'PG / Hostel', desc: 'Managed accommodation with meals' },
   { value: 'APARTMENT', label: 'Apartment', desc: 'Independent 1BHK / 2BHK' },
-  { value: 'SHARED_FLAT', label: 'Shared Flat', desc: 'Share with flatmates' },
-  { value: 'TEMPORARY', label: 'Temporary Stay', desc: 'Short-term / service apartment' },
+  { value: 'FLAT', label: 'Shared Flat', desc: 'Share with flatmates' },
+  { value: 'ROOM', label: 'Room', desc: 'Single room in a house' },
 ]
 
 const BUDGET_RANGES = [
@@ -47,7 +47,7 @@ export function PreferenceFlow({ onClose }: PreferenceFlowProps) {
     minPrice: undefined as number | undefined,
     maxPrice: undefined as number | undefined,
     area: '',
-    hasAC: false,
+    hasAc: false,
     foodIncluded: false,
     roomType: '',
   })
@@ -66,11 +66,11 @@ export function PreferenceFlow({ onClose }: PreferenceFlowProps) {
 
   function finishAndSearch() {
     const params = new URLSearchParams()
-    if (answers.stayType) params.set('stayType', answers.stayType)
+    if (answers.stayType) params.set('propertyType', answers.stayType)
     if (answers.minPrice !== undefined) params.set('minPrice', String(answers.minPrice))
     if (answers.maxPrice !== undefined) params.set('maxPrice', String(answers.maxPrice))
     if (answers.area && answers.area !== 'Any area') params.set('area', answers.area)
-    if (answers.hasAC) params.set('hasAC', 'true')
+    if (answers.hasAc) params.set('hasAc', 'true')
     if (answers.foodIncluded) params.set('foodIncluded', 'true')
     if (answers.roomType) params.set('roomType', answers.roomType)
     router.push(`/explore?${params.toString()}`)
@@ -188,13 +188,13 @@ export function PreferenceFlow({ onClose }: PreferenceFlowProps) {
                 <h2 className="text-2xl font-bold text-gray-900">Any must-haves?</h2>
                 <div className="space-y-3 mt-5">
                   {[
-                    { key: 'hasAC', label: 'Air Conditioning (AC)' },
+                    { key: 'hasAc', label: 'Air Conditioning (AC)' },
                     { key: 'foodIncluded', label: 'Meals / Food Included' },
                   ].map(({ key, label }) => (
                     <label key={key} className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 cursor-pointer hover:border-brand-300">
                       <input
                         type="checkbox"
-                        checked={answers[key as 'hasAC' | 'foodIncluded']}
+                        checked={answers[key as 'hasAc' | 'foodIncluded']}
                         onChange={(e) => setAnswers((a) => ({ ...a, [key]: e.target.checked }))}
                         className="h-5 w-5 rounded text-brand-600"
                       />

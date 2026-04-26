@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import {
-  LayoutDashboard, Home, Users, MessageSquare, Flag,
-  CheckCircle, XCircle, AlertTriangle, ArrowRight, Plus,
+  LayoutDashboard, Home, Users, Flag,
+  CheckCircle, XCircle, ArrowRight, Plus,
 } from 'lucide-react'
 import { formatDate, formatPrice, stayTypeLabel } from '@/lib/utils'
 
@@ -18,13 +18,13 @@ export default async function AdminPage() {
   const [totalListings, totalUsers, pendingReports, recentListings] = await Promise.all([
     prisma.property.count(),
     prisma.user.count(),
-    prisma.concernReport.count({ where: { status: 'PENDING' } }),
+    prisma.report.count({ where: { status: 'PENDING' } }),
     prisma.property.findMany({
       take: 8,
       orderBy: { createdAt: 'desc' },
       include: {
-        images: { where: { isPrimary: true }, take: 1 },
-        _count: { select: { reviews: true, reports: true } },
+        media: { where: { isPrimary: true }, take: 1 },
+        _count: { select: { reviews: true } },
       },
     }),
   ])
@@ -96,9 +96,9 @@ export default async function AdminPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
-                        {p.images[0] && (
+                        {p.media[0] && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.images[0].url} alt="" className="h-full w-full object-cover" />
+                          <img src={p.media[0].url} alt="" className="h-full w-full object-cover" />
                         )}
                       </div>
                       <div>
@@ -107,17 +107,14 @@ export default async function AdminPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{stayTypeLabel(p.stayType)}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{formatPrice(p.price)}</td>
+                  <td className="px-6 py-4 text-gray-600">{stayTypeLabel(p.propertyType)}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{formatPrice(p.rentAmount)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5">
                       {p.isAvailable ? (
                         <><CheckCircle className="h-3.5 w-3.5 text-green-500" /><span className="text-green-700 text-xs">Available</span></>
                       ) : (
                         <><XCircle className="h-3.5 w-3.5 text-red-500" /><span className="text-red-700 text-xs">Unavailable</span></>
-                      )}
-                      {p._count.reports > 0 && (
-                        <><AlertTriangle className="h-3.5 w-3.5 text-amber-500 ml-2" /><span className="text-amber-700 text-xs">{p._count.reports} report{p._count.reports > 1 ? 's' : ''}</span></>
                       )}
                     </div>
                   </td>

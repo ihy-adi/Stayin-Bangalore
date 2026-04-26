@@ -25,7 +25,6 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
 
-    // Dynamically load Leaflet CSS + JS (no token needed)
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
@@ -45,10 +44,12 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
       mapRef.current = map
       setLoading(false)
 
-      // Fit bounds when properties load
       if (properties.length > 0) {
-        const bounds = L.latLngBounds(properties.map((p) => [p.latitude, p.longitude]))
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
+        const withCoords = properties.filter((p) => p.latitude != null && p.longitude != null)
+        if (withCoords.length > 0) {
+          const bounds = L.latLngBounds(withCoords.map((p) => [Number(p.latitude), Number(p.longitude)]))
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
+        }
       }
     })
 
@@ -58,49 +59,31 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
     }
   }, [])
 
-  // Add/refresh property markers
   useEffect(() => {
     if (!mapRef.current || loading) return
     import('leaflet').then((L) => {
-      // Clear old markers
       mapRef.current.eachLayer((layer: any) => {
         if (layer instanceof L.Marker) mapRef.current.removeLayer(layer)
       })
 
       properties.forEach((property) => {
+        if (property.latitude == null || property.longitude == null) return
+
         const icon = L.divIcon({
           className: '',
-          html: `<div style="
-            background:white;
-            border:2px solid #d43f36;
-            border-radius:999px;
-            padding:3px 10px;
-            font-size:11px;
-            font-weight:700;
-            color:#b2312a;
-            white-space:nowrap;
-            box-shadow:0 2px 6px rgba(0,0,0,0.15);
-            cursor:pointer;
-          ">₹${(property.price / 1000).toFixed(0)}k</div>`,
+          html: `<div style="background:white;border:2px solid #d43f36;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:#b2312a;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.15);cursor:pointer;">₹${(property.rentAmount / 1000).toFixed(0)}k</div>`,
           iconAnchor: [20, 16],
         })
 
-        L.marker([property.latitude, property.longitude], { icon })
+        L.marker([Number(property.latitude), Number(property.longitude)], { icon })
           .addTo(mapRef.current)
           .on('click', () => setSelected(property))
       })
 
-      // User location marker
       if (userLocation) {
         const userIcon = L.divIcon({
           className: '',
-          html: `<div style="
-            width:16px;height:16px;
-            background:#3b82f6;
-            border:3px solid white;
-            border-radius:50%;
-            box-shadow:0 0 0 4px rgba(59,130,246,0.3);
-          "></div>`,
+          html: `<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.3);"></div>`,
           iconAnchor: [8, 8],
         })
         L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(mapRef.current)
@@ -134,7 +117,6 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
         </div>
       )}
 
-      {/* Locate me */}
       <button
         onClick={locateUser}
         disabled={locating}
@@ -144,15 +126,14 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
         {locating ? 'Locating…' : 'My Location'}
       </button>
 
-      {/* Property popup */}
       {selected && (
         <div className="absolute bottom-16 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
           <button onClick={() => setSelected(null)} className="absolute top-2 right-3 text-gray-400 hover:text-gray-600 text-lg leading-none z-10">×</button>
           <Link href={`/listings/${selected.id}`}>
             <div className="flex gap-3 p-3">
               <div className="relative h-20 w-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                {selected.images[0] ? (
-                  <Image src={selected.images[0].url} alt={selected.title} fill className="object-cover" sizes="96px" />
+                {selected.media[0] ? (
+                  <Image src={selected.media[0].url} alt={selected.title} fill className="object-cover" sizes="96px" />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center">
                     <MapPin className="h-6 w-6 text-gray-300" />
@@ -163,7 +144,7 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
                 <p className="font-semibold text-sm text-gray-900 line-clamp-2 leading-tight">{selected.title}</p>
                 <p className="text-xs text-gray-500 mt-1">{selected.area}</p>
                 <p className="text-sm font-bold text-brand-600 mt-1">
-                  {formatPrice(selected.price)}<span className="text-xs font-normal text-gray-400">/mo</span>
+                  {formatPrice(selected.rentAmount)}<span className="text-xs font-normal text-gray-400">/mo</span>
                 </p>
               </div>
             </div>

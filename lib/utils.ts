@@ -34,6 +34,12 @@ export function stayTypeLabel(type: string): string {
   const map: Record<string, string> = {
     PG: 'PG',
     APARTMENT: 'Apartment',
+    FLAT: 'Flat',
+    ROOM: 'Room',
+    HOSTEL: 'Hostel',
+    CO_LIVING: 'Co-living',
+    SERVICE_APARTMENT: 'Service Apt',
+    // legacy
     TEMPORARY: 'Temporary Stay',
     SHARED_FLAT: 'Shared Flat',
   }
@@ -42,9 +48,11 @@ export function stayTypeLabel(type: string): string {
 
 export function furnishedLabel(status: string): string {
   const map: Record<string, string> = {
-    FURNISHED: 'Fully Furnished',
+    FULLY_FURNISHED: 'Fully Furnished',
     SEMI_FURNISHED: 'Semi-Furnished',
     UNFURNISHED: 'Unfurnished',
+    // legacy
+    FURNISHED: 'Fully Furnished',
   }
   return map[status] ?? status
 }

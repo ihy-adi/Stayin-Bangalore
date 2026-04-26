@@ -7,21 +7,25 @@ export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const saved = await prisma.savedListing.findMany({
+  const saved = await prisma.savedProperty.findMany({
     where: { userId: session.user.id },
     include: {
       property: {
         include: {
-          images: { where: { isPrimary: true }, take: 1 },
+          media: { where: { isPrimary: true }, take: 1 },
           amenities: { include: { amenity: true } },
           _count: { select: { reviews: true } },
         },
       },
     },
-    orderBy: { savedAt: 'desc' },
+    orderBy: { createdAt: 'desc' },
   })
 
-  return NextResponse.json(saved.map((s) => s.property))
+  return NextResponse.json(saved.map((s) => ({
+    ...s.property,
+    latitude: s.property.latitude ? Number(s.property.latitude) : null,
+    longitude: s.property.longitude ? Number(s.property.longitude) : null,
+  })))
 }
 
 export async function POST(req: NextRequest) {
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
   const { propertyId } = await req.json()
   if (!propertyId) return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
 
-  await prisma.savedListing.upsert({
+  await prisma.savedProperty.upsert({
     where: { userId_propertyId: { userId: session.user.id, propertyId } },
     update: {},
     create: { userId: session.user.id, propertyId },
@@ -45,7 +49,7 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { propertyId } = await req.json()
-  await prisma.savedListing.deleteMany({
+  await prisma.savedProperty.deleteMany({
     where: { userId: session.user.id, propertyId },
   })
 

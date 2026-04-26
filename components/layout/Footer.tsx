@@ -22,10 +22,10 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-3 text-sm">Explore</h3>
             <ul className="space-y-2 text-sm">
               {[
-                ['PG Accommodations', '/explore?stayType=PG'],
-                ['Apartments', '/explore?stayType=APARTMENT'],
-                ['Shared Flats', '/explore?stayType=SHARED_FLAT'],
-                ['Temporary Stays', '/explore?stayType=TEMPORARY'],
+                ['PG Accommodations', '/explore?propertyType=PG'],
+                ['Apartments', '/explore?propertyType=APARTMENT'],
+                ['Shared Flats', '/explore?propertyType=FLAT'],
+                ['Hostels', '/explore?propertyType=HOSTEL'],
                 ['Find a Flatmate', '/flatmates'],
               ].map(([label, href]) => (
                 <li key={href}>

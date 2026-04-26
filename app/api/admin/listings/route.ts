@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
 
   const properties = await prisma.property.findMany({
     include: {
-      images: { where: { isPrimary: true }, take: 1 },
-      createdBy: { select: { name: true, email: true } },
-      _count: { select: { reviews: true, reports: true } },
+      media: { where: { isPrimary: true }, take: 1 },
+      owner: { select: { name: true, email: true } },
+      _count: { select: { reviews: true } },
     },
     orderBy: { createdAt: 'desc' },
   })

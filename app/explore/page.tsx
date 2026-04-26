@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { List, Map, Loader2, MapPin } from 'lucide-react'
 import { ListingCard } from '@/components/listings/ListingCard'
 import { ListingFilters } from '@/components/listings/ListingFilters'
@@ -12,7 +12,6 @@ import type { PropertyCard, SearchFilters } from '@/types'
 
 function ExploreContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
 
   const [view, setView] = useState<'list' | 'map'>('list')
   const [properties, setProperties] = useState<PropertyCard[]>([])
@@ -22,11 +21,11 @@ function ExploreContent() {
   // Parse filters from URL
   const [filters, setFilters] = useState<SearchFilters>(() => ({
     query: searchParams.get('q') ?? undefined,
-    stayType: searchParams.get('stayType') ? [searchParams.get('stayType')!] : undefined,
+    propertyType: searchParams.get('propertyType') ? [searchParams.get('propertyType')!] : undefined,
     area: searchParams.get('area') ?? undefined,
     minPrice: searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined,
     maxPrice: searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined,
-    hasAC: searchParams.get('hasAC') === 'true' || undefined,
+    hasAc: searchParams.get('hasAc') === 'true' || undefined,
     foodIncluded: searchParams.get('foodIncluded') === 'true' || undefined,
     roomType: searchParams.get('roomType') ?? undefined,
     sortBy: (searchParams.get('sortBy') as SearchFilters['sortBy']) ?? 'newest',
@@ -34,33 +33,40 @@ function ExploreContent() {
 
   const fetchListings = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (filters.query) params.set('q', filters.query)
-    if (filters.stayType?.length) params.set('stayType', filters.stayType.join(','))
-    if (filters.area) params.set('area', filters.area)
-    if (filters.minPrice) params.set('minPrice', String(filters.minPrice))
-    if (filters.maxPrice) params.set('maxPrice', String(filters.maxPrice))
-    if (filters.hasAC) params.set('hasAC', 'true')
-    if (filters.foodIncluded) params.set('foodIncluded', 'true')
-    if (filters.roomType) params.set('roomType', filters.roomType)
-    if (filters.isFurnished) params.set('isFurnished', filters.isFurnished)
-    if (filters.genderPreference) params.set('genderPreference', filters.genderPreference)
-    if (filters.sortBy && filters.sortBy !== 'distance') params.set('sortBy', filters.sortBy)
+    try {
+      const params = new URLSearchParams()
+      if (filters.query) params.set('q', filters.query)
+      if (filters.propertyType?.length) params.set('propertyType', filters.propertyType.join(','))
+      if (filters.area) params.set('area', filters.area)
+      if (filters.minPrice) params.set('minPrice', String(filters.minPrice))
+      if (filters.maxPrice) params.set('maxPrice', String(filters.maxPrice))
+      if (filters.hasAc) params.set('hasAc', 'true')
+      if (filters.foodIncluded) params.set('foodIncluded', 'true')
+      if (filters.roomType) params.set('roomType', filters.roomType)
+      if (filters.furnishing) params.set('furnishing', filters.furnishing)
+      if (filters.genderPreference) params.set('genderPreference', filters.genderPreference)
+      if (filters.sortBy && filters.sortBy !== 'distance') params.set('sortBy', filters.sortBy)
 
-    const res = await fetch(`/api/listings?${params.toString()}`)
-    let data: PropertyCard[] = await res.json()
+      const res = await fetch(`/api/listings?${params.toString()}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      let data: PropertyCard[] = await res.json()
 
-    // Client-side distance sort
-    if (filters.sortBy === 'distance' && userLocation) {
-      data = data.sort((a, b) => {
-        const da = haversineDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude)
-        const db = haversineDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude)
-        return da - db
-      })
+      // Client-side distance sort
+      if (filters.sortBy === 'distance' && userLocation) {
+        data = data.sort((a, b) => {
+          const da = haversineDistance(userLocation.lat, userLocation.lng, Number(a.latitude), Number(a.longitude))
+          const db = haversineDistance(userLocation.lat, userLocation.lng, Number(b.latitude), Number(b.longitude))
+          return da - db
+        })
+      }
+
+      setProperties(data)
+    } catch (err) {
+      console.error('Failed to fetch listings', err)
+      setProperties([])
+    } finally {
+      setLoading(false)
     }
-
-    setProperties(data)
-    setLoading(false)
   }, [filters, userLocation])
 
   useEffect(() => { fetchListings() }, [fetchListings])

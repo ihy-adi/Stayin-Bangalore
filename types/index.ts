@@ -1,26 +1,35 @@
 import type {
-  Property, PropertyImage, Amenity, PropertyAmenity,
-  Review, Comment, User, FlatmatePost, SavedListing
+  Property, PropertyMedia, Amenity, PropertyAmenity,
+  Review, User, FlatmatePost, SavedProperty
 } from '@prisma/client'
 
 export type PropertyWithRelations = Property & {
-  images: PropertyImage[]
+  media: PropertyMedia[]
   amenities: (PropertyAmenity & { amenity: Amenity })[]
   reviews: (Review & { user: Pick<User, 'id' | 'name' | 'image'> })[]
-  comments: (Comment & { user: Pick<User, 'id' | 'name' | 'image'> })[]
-  createdBy: Pick<User, 'id' | 'name' | 'image'>
+  owner: Pick<User, 'id' | 'name' | 'image'>
   _count?: { reviews: number; savedBy: number }
 }
 
-export type PropertyCard = Pick<
-  Property,
-  | 'id' | 'title' | 'stayType' | 'area' | 'price' | 'deposit'
-  | 'roomType' | 'hasAC' | 'isFurnished' | 'foodIncluded'
-  | 'genderPreference' | 'isAvailable' | 'isVerified'
-  | 'latitude' | 'longitude' | 'availableFrom'
-> & {
-  images: Pick<PropertyImage, 'url' | 'alt' | 'isPrimary'>[]
-  amenities: (PropertyAmenity & { amenity: Pick<Amenity, 'name' | 'icon'> })[]
+export type PropertyCard = {
+  id: string
+  title: string
+  propertyType: string
+  area: string
+  rentAmount: number
+  depositAmount: number | null
+  roomType: string | null
+  hasAc: boolean | null
+  furnishing: string | null
+  foodIncluded: boolean | null
+  genderPreference: string
+  isAvailable: boolean
+  isVerified: boolean
+  latitude: number | null
+  longitude: number | null
+  availableFrom: Date | string | null
+  media: Pick<PropertyMedia, 'url' | 'caption' | 'isPrimary'>[]
+  amenities: (PropertyAmenity & { amenity: Pick<Amenity, 'name'> })[]
   _count: { reviews: number }
   avgRating?: number
   savedByCurrentUser?: boolean
@@ -28,21 +37,21 @@ export type PropertyCard = Pick<
 
 export type FlatmatePostWithRelations = FlatmatePost & {
   user: Pick<User, 'id' | 'name' | 'image'>
-  property?: Pick<Property, 'id' | 'title' | 'area' | 'price'> & {
-    images: Pick<PropertyImage, 'url' | 'isPrimary'>[]
+  property?: Pick<Property, 'id' | 'title' | 'area' | 'rentAmount'> & {
+    media: Pick<PropertyMedia, 'url' | 'isPrimary'>[]
   }
 }
 
 export interface SearchFilters {
   query?: string
-  stayType?: string[]
+  propertyType?: string[]
   minPrice?: number
   maxPrice?: number
   area?: string
-  hasAC?: boolean
+  hasAc?: boolean
   foodIncluded?: boolean
   roomType?: string
-  isFurnished?: string
+  furnishing?: string
   genderPreference?: string
   amenities?: string[]
   sortBy?: 'price_asc' | 'price_desc' | 'rating' | 'newest' | 'distance'

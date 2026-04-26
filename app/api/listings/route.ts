@@ -7,24 +7,22 @@ import { z } from 'zod'
 const listingSchema = z.object({
   title: z.string().min(5),
   description: z.string().min(20),
-  stayType: z.enum(['PG', 'APARTMENT', 'TEMPORARY', 'SHARED_FLAT']),
-  address: z.string().min(5),
+  propertyType: z.enum(['PG', 'APARTMENT', 'FLAT', 'ROOM', 'HOSTEL', 'CO_LIVING', 'SERVICE_APARTMENT']),
+  addressLine1: z.string().min(5),
+  addressLine2: z.string().optional().nullable(),
   area: z.string().min(2),
-  latitude: z.number(),
-  longitude: z.number(),
-  price: z.number().positive(),
-  deposit: z.number().nonnegative(),
-  roomType: z.enum(['PRIVATE', 'SHARED']),
-  hasAC: z.boolean().default(false),
-  isFurnished: z.enum(['FURNISHED', 'SEMI_FURNISHED', 'UNFURNISHED']),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  rentAmount: z.number().positive(),
+  depositAmount: z.number().nonnegative().optional().nullable(),
+  roomType: z.enum(['PRIVATE', 'SHARED', 'SINGLE', 'DOUBLE_SHARING', 'TRIPLE_SHARING', 'FOUR_SHARING', 'ONE_BHK', 'TWO_BHK', 'THREE_BHK', 'STUDIO']).optional().nullable(),
+  hasAc: z.boolean().default(false),
+  furnishing: z.enum(['FULLY_FURNISHED', 'SEMI_FURNISHED', 'UNFURNISHED']).optional().nullable(),
   foodIncluded: z.boolean().default(false),
-  genderPreference: z.enum(['MALE', 'FEMALE', 'ANY']).default('ANY'),
-  availableFrom: z.string(),
-  contactName: z.string().min(2),
-  contactPhone: z.string().min(10),
-  contactEmail: z.string().email().optional().nullable(),
+  genderPreference: z.enum(['MALE', 'FEMALE', 'ANY', 'FAMILY']).default('ANY'),
+  availableFrom: z.string().optional().nullable(),
   amenityIds: z.array(z.string()).default([]),
-  images: z.array(z.object({ url: z.string().url(), alt: z.string().optional(), isPrimary: z.boolean() })).default([]),
+  media: z.array(z.object({ url: z.string().url(), caption: z.string().optional(), isPrimary: z.boolean(), mediaType: z.enum(['IMAGE', 'VIDEO']).default('IMAGE') })).default([]),
 })
 
 export async function GET(req: NextRequest) {
@@ -32,8 +30,8 @@ export async function GET(req: NextRequest) {
 
   const where: any = { isAvailable: true }
 
-  const stayTypes = searchParams.get('stayType')?.split(',').filter(Boolean)
-  if (stayTypes?.length) where.stayType = { in: stayTypes }
+  const propertyTypes = searchParams.get('propertyType')?.split(',').filter(Boolean)
+  if (propertyTypes?.length) where.propertyType = { in: propertyTypes }
 
   const area = searchParams.get('area')
   if (area) where.area = { contains: area, mode: 'insensitive' }
@@ -41,19 +39,19 @@ export async function GET(req: NextRequest) {
   const minPrice = searchParams.get('minPrice')
   const maxPrice = searchParams.get('maxPrice')
   if (minPrice || maxPrice) {
-    where.price = {}
-    if (minPrice) where.price.gte = parseInt(minPrice)
-    if (maxPrice) where.price.lte = parseInt(maxPrice)
+    where.rentAmount = {}
+    if (minPrice) where.rentAmount.gte = parseInt(minPrice)
+    if (maxPrice) where.rentAmount.lte = parseInt(maxPrice)
   }
 
-  if (searchParams.get('hasAC') === 'true') where.hasAC = true
+  if (searchParams.get('hasAc') === 'true') where.hasAc = true
   if (searchParams.get('foodIncluded') === 'true') where.foodIncluded = true
 
   const roomType = searchParams.get('roomType')
   if (roomType) where.roomType = roomType
 
-  const isFurnished = searchParams.get('isFurnished')
-  if (isFurnished) where.isFurnished = isFurnished
+  const furnishing = searchParams.get('furnishing')
+  if (furnishing) where.furnishing = furnishing
 
   const genderPref = searchParams.get('genderPreference')
   if (genderPref) where.genderPreference = { in: [genderPref, 'ANY'] }
@@ -64,37 +62,46 @@ export async function GET(req: NextRequest) {
       { title: { contains: query, mode: 'insensitive' } },
       { description: { contains: query, mode: 'insensitive' } },
       { area: { contains: query, mode: 'insensitive' } },
-      { address: { contains: query, mode: 'insensitive' } },
+      { addressLine1: { contains: query, mode: 'insensitive' } },
     ]
   }
 
   const sortBy = searchParams.get('sortBy') ?? 'newest'
   let orderBy: any = { createdAt: 'desc' }
-  if (sortBy === 'price_asc') orderBy = { price: 'asc' }
-  if (sortBy === 'price_desc') orderBy = { price: 'desc' }
+  if (sortBy === 'price_asc') orderBy = { rentAmount: 'asc' }
+  if (sortBy === 'price_desc') orderBy = { rentAmount: 'desc' }
 
-  const properties = await prisma.property.findMany({
-    where,
-    orderBy,
-    include: {
-      images: { where: { isPrimary: true }, take: 1 },
-      amenities: { include: { amenity: true } },
-      _count: { select: { reviews: true } },
-    },
-  })
-
-  // Attach avg rating
-  const enriched = await Promise.all(
-    properties.map(async (p) => {
-      const agg = await prisma.review.aggregate({
-        where: { propertyId: p.id },
-        _avg: { rating: true },
-      })
-      return { ...p, avgRating: agg._avg.rating ?? 0 }
+  try {
+    const properties = await prisma.property.findMany({
+      where,
+      orderBy,
+      include: {
+        media: { where: { isPrimary: true }, take: 1 },
+        amenities: { include: { amenity: true } },
+        _count: { select: { reviews: true } },
+      },
     })
-  )
 
-  return NextResponse.json(enriched)
+    const enriched = await Promise.all(
+      properties.map(async (p) => {
+        const agg = await prisma.review.aggregate({
+          where: { propertyId: p.id },
+          _avg: { rating: true },
+        })
+        return {
+          ...p,
+          latitude: p.latitude ? Number(p.latitude) : null,
+          longitude: p.longitude ? Number(p.longitude) : null,
+          avgRating: agg._avg.rating ?? 0,
+        }
+      })
+    )
+
+    return NextResponse.json(enriched)
+  } catch (err) {
+    console.error('[GET /api/listings]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -104,19 +111,20 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const data = listingSchema.parse(body)
-    const { amenityIds, images, availableFrom, ...rest } = data
+    const { amenityIds, media, availableFrom, ...rest } = data
 
     const property = await prisma.property.create({
       data: {
         ...rest,
-        availableFrom: new Date(availableFrom),
-        createdById: session.user.id,
+        slug: `${rest.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`,
+        availableFrom: availableFrom ? new Date(availableFrom) : null,
+        ownerId: session.user.id,
         amenities: {
           create: amenityIds.map((id) => ({ amenityId: id })),
         },
-        images: { create: images },
+        media: { create: media },
       },
-      include: { images: true, amenities: { include: { amenity: true } } },
+      include: { media: true, amenities: { include: { amenity: true } } },
     })
 
     return NextResponse.json(property, { status: 201 })
@@ -124,6 +132,7 @@ export async function POST(req: NextRequest) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.errors[0].message }, { status: 400 })
     }
+    console.error('[POST /api/listings]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
