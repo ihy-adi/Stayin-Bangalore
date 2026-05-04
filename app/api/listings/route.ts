@@ -28,7 +28,7 @@ const listingSchema = z.object({
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const where: any = { isAvailable: true }
+  const where: any = { isAvailable: true, status: 'ACTIVE' }
 
   const propertyTypes = searchParams.get('propertyType')?.split(',').filter(Boolean)
   if (propertyTypes?.length) where.propertyType = { in: propertyTypes }
@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
     const property = await prisma.property.create({
       data: {
         ...rest,
+        status: 'ACTIVE',
         slug: `${rest.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`,
         availableFrom: availableFrom ? new Date(availableFrom) : null,
         ownerId: session.user.id,

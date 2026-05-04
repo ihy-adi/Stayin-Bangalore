@@ -53,11 +53,14 @@ function ExploreContent() {
 
       // Client-side distance sort
       if (filters.sortBy === 'distance' && userLocation) {
-        data = data.sort((a, b) => {
-          const da = haversineDistance(userLocation.lat, userLocation.lng, Number(a.latitude), Number(a.longitude))
-          const db = haversineDistance(userLocation.lat, userLocation.lng, Number(b.latitude), Number(b.longitude))
-          return da - db
-        })
+        const dist = (p: PropertyCard) => {
+          if (p.latitude == null || p.longitude == null) return Number.POSITIVE_INFINITY
+          const la = Number(p.latitude)
+          const lo = Number(p.longitude)
+          if (!Number.isFinite(la) || !Number.isFinite(lo)) return Number.POSITIVE_INFINITY
+          return haversineDistance(userLocation.lat, userLocation.lng, la, lo)
+        }
+        data = [...data].sort((a, b) => dist(a) - dist(b))
       }
 
       setProperties(data)

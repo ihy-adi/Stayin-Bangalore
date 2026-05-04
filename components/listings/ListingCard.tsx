@@ -26,11 +26,15 @@ export function ListingCard({ property, onSaveToggle }: ListingCardProps) {
     if (!session) { window.location.href = '/login'; return }
     setSaving(true)
     const method = saved ? 'DELETE' : 'POST'
-    await fetch('/api/saved', {
+    const res = await fetch('/api/saved', {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ propertyId: property.id }),
     })
+    if (!res.ok) {
+      setSaving(false)
+      return
+    }
     setSaved(!saved)
     onSaveToggle?.(property.id, !saved)
     setSaving(false)

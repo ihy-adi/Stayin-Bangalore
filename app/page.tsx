@@ -27,7 +27,11 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/listings?sortBy=newest')
       .then((r) => r.json())
-      .then((data) => { setFeaturedListings(data.slice(0, 6)); setLoading(false) })
+      .then((data) => {
+        const list = Array.isArray(data) ? data : []
+        setFeaturedListings(list.slice(0, 6))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 

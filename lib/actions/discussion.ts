@@ -10,20 +10,8 @@ import type {
   ThreadWithMeta,
   ThreadDetail,
   CommentWithReplies,
-  DiscussionErrorCode,
 } from '@/types/discussion'
-
-// ── Custom error ──────────────────────────────────────────────────────────────
-
-export class DiscussionError extends Error {
-  constructor(
-    message: string,
-    public readonly code: DiscussionErrorCode,
-  ) {
-    super(message)
-    this.name = 'DiscussionError'
-  }
-}
+import { DiscussionError } from '@/lib/actions/discussion-errors'
 
 // ── Selectors ─────────────────────────────────────────────────────────────────
 

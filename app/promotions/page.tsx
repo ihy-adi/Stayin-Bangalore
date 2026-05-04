@@ -14,6 +14,7 @@ async function getVerifiedListings() {
     where: {
       isVerified: true,
       isAvailable: true,
+      status: 'ACTIVE',
     },
     include: {
       media: { where: { isPrimary: true }, take: 1 },

@@ -281,8 +281,13 @@ export function ThreadDetailView({ threadId, propertyId, isAuthed, onBack }: Thr
     setLoading(true)
     setError('')
     fetch(`/api/discussions/threads/${threadId}`)
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const data = await r.json()
+        if (!r.ok) {
+          setError(typeof data.error === 'string' ? data.error : 'Thread not found.')
+          setThread(null)
+          return
+        }
         setThread(data)
         setThreadVote({
           upvoteCount: data.upvoteCount,

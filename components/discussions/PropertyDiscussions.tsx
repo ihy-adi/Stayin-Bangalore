@@ -96,13 +96,16 @@ function ThreadCard({
   onClick,
   onVote,
   isAuthed,
+  propertyOwnerId,
 }: {
   thread: ThreadWithMeta
   onClick: () => void
   onVote: (threadId: string, type: 'UP' | 'DOWN') => void
   isAuthed: boolean
+  propertyOwnerId?: string
 }) {
   const badge = TYPE_BADGE[thread.type]
+  const isOwnerPost = propertyOwnerId !== undefined && thread.authorId === propertyOwnerId
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 hover:border-gray-200 hover:shadow-sm transition-all">
@@ -115,6 +118,11 @@ function ThreadCard({
             <span className="text-sm font-medium text-gray-900 truncate">
               {thread.author.name ?? 'Anonymous'}
             </span>
+            {isOwnerPost && (
+              <span className="inline-flex items-center bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                Owner
+              </span>
+            )}
             {thread.author.isVerified && (
               <Badge variant="success" className="text-[10px] py-0">Verified</Badge>
             )}
@@ -279,9 +287,11 @@ function CreateThreadForm({
 
 interface PropertyDiscussionsProps {
   propertyId: string
+  /** For Owner badge: thread/comment authorId vs property owner */
+  propertyOwnerId?: string
 }
 
-export function PropertyDiscussions({ propertyId }: PropertyDiscussionsProps) {
+export function PropertyDiscussions({ propertyId, propertyOwnerId }: PropertyDiscussionsProps) {
   const { data: session } = useSession()
   const isAuthed = !!session?.user?.id
 
@@ -451,6 +461,7 @@ export function PropertyDiscussions({ propertyId }: PropertyDiscussionsProps) {
               onClick={() => setSelectedThreadId(thread.id)}
               onVote={handleVote}
               isAuthed={isAuthed}
+              propertyOwnerId={propertyOwnerId}
             />
           ))}
         </div>

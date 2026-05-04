@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { z } from 'zod'
-import { voteOnThread, DiscussionError } from '@/lib/actions/discussion'
+import { voteOnThread } from '@/lib/actions/discussion'
+import { DiscussionError, httpStatusForDiscussionError } from '@/lib/actions/discussion-errors'
 
 const schema = z.object({ voteType: z.enum(['UP', 'DOWN']) })
 
@@ -25,8 +26,10 @@ export async function POST(
       return NextResponse.json({ error: err.errors[0].message }, { status: 400 })
     }
     if (err instanceof DiscussionError) {
-      const status = err.code === 'NOT_FOUND' ? 404 : err.code === 'UNAUTHORIZED' ? 401 : 400
-      return NextResponse.json({ error: err.message }, { status })
+      return NextResponse.json(
+        { error: err.message },
+        { status: httpStatusForDiscussionError(err.code) },
+      )
     }
     return NextResponse.json({ error: 'Failed to vote' }, { status: 500 })
   }

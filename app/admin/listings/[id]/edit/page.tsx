@@ -13,7 +13,7 @@ export default async function EditListingPage({ params }: { params: { id: string
   const [property, amenities] = await Promise.all([
     prisma.property.findUnique({
       where: { id: params.id },
-      include: { images: true, amenities: true },
+      include: { media: true, amenities: true },
     }),
     prisma.amenity.findMany({ orderBy: { name: 'asc' } }),
   ])

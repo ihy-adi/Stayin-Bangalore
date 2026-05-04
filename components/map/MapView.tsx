@@ -45,7 +45,10 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
       setLoading(false)
 
       if (properties.length > 0) {
-        const withCoords = properties.filter((p) => p.latitude != null && p.longitude != null)
+        const withCoords = properties.filter((p) => {
+          if (p.latitude == null || p.longitude == null) return false
+          return Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude))
+        })
         if (withCoords.length > 0) {
           const bounds = L.latLngBounds(withCoords.map((p) => [Number(p.latitude), Number(p.longitude)]))
           map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
@@ -68,6 +71,9 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
 
       properties.forEach((property) => {
         if (property.latitude == null || property.longitude == null) return
+        const lat = Number(property.latitude)
+        const lng = Number(property.longitude)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
 
         const icon = L.divIcon({
           className: '',
@@ -75,7 +81,7 @@ export function MapView({ properties, userLocation, onUserLocation }: MapViewPro
           iconAnchor: [20, 16],
         })
 
-        L.marker([Number(property.latitude), Number(property.longitude)], { icon })
+        L.marker([lat, lng], { icon })
           .addTo(mapRef.current)
           .on('click', () => setSelected(property))
       })

@@ -40,7 +40,7 @@ async function getProperty(id: string) {
         include: { user: { select: { id: true, name: true, image: true } } },
         orderBy: { createdAt: 'desc' },
       },
-      owner: { select: { id: true, name: true, image: true, email: true, phone: true } },
+      owner: { select: { id: true, name: true, image: true, email: true, phone: true, isVerified: true } },
       _count: { select: { reviews: true, savedBy: true } },
     },
   })
@@ -202,7 +202,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
 
           {/* Discussions */}
           <div>
-            <PropertyDiscussions propertyId={property.id} />
+            <PropertyDiscussions propertyId={property.id} propertyOwnerId={property.ownerId} />
           </div>
         </div>
 
@@ -222,9 +222,14 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
               )}
 
               <div className="space-y-3 mb-5">
-                <div className="flex items-center gap-3 text-sm text-gray-700">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
                   <User className="h-4 w-4 text-gray-400" />
                   <span className="font-medium">{ownerName}</span>
+                  {property.owner.isVerified && (
+                    <Badge variant="success" className="text-[10px] py-0">
+                      <CheckCircle className="h-3 w-3 mr-0.5" /> Verified
+                    </Badge>
+                  )}
                 </div>
                 {ownerPhone && (
                   <a
